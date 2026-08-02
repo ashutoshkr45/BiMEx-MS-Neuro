@@ -6,6 +6,8 @@ from dataset import ImageDataset
 from cnet_multi import CNet
 from utils import set_seed
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train CNet on BraTS Binary and Multiclass classification')

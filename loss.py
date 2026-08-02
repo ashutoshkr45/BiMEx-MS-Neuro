@@ -5,24 +5,6 @@ import torch.nn.functional as F
 import itertools
     
 class Multiclass_SupConLoss(torch.nn.Module):
-    """
-    Multiclass Supervised Contrastive Loss.
-
-    This loss extends supervised contrastive learning to the multi-label/multi-class setting.
-    It supports both cosine similarity and dot product as similarity metrics, and computes
-    contrastive loss.
-
-    References:
-        - Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf
-        - Multilabel Contrastive Learning (equation 6): https://ojs.aaai.org/index.php/AAAI/article/view/29619
-
-    Args:
-        temperature (float): Scaling factor for the logits (default: 0.07)
-        contrast_mode (str): Either 'one' (only first view as anchor) or 'all' (all views as anchor)
-        base_temperature (float): Base temperature for scaling (used in final loss scaling)
-        use_cosine_similarity (bool): Whether to use cosine similarity instead of dot product
-    """
-
     def __init__(self, temperature=0.07, contrast_mode='all',
                 base_temperature=0.07, use_cosine_similarity=False):
         super(Multiclass_SupConLoss, self).__init__()
@@ -33,21 +15,6 @@ class Multiclass_SupConLoss(torch.nn.Module):
 
         
     def forward(self, zis, zjs, labels=None, mask=None):
-        """
-        Forward pass for computing the supervised contrastive loss.
-
-        Args:
-            zis (Tensor): features of shape [batch_size, feature_dim]
-            zjs (Tensor): features (another view) of shape [batch_size, feature_dim]
-            labels (Tensor, optional): Multi-label tensor of shape [batch_size, num_classes].
-                                       If provided, a mask is created from labels.
-            mask (Tensor, optional): Binary mask of shape [batch_size, batch_size, num_classes],
-                                     where mask[i, j, k] = 1 indicates i and j share class k.
-                                     Provide either `labels` or `mask`, not both.
-
-        Returns:
-            torch.Tensor: A scalar tensor representing the contrastive loss.
-        """
         device = torch.device('cuda')
         
         features = torch.cat([zis.unsqueeze(1), zjs.unsqueeze(1)], dim=1)
@@ -123,27 +90,12 @@ class Multiclass_SupConLoss(torch.nn.Module):
 
 class MultiLabelFocalLoss(torch.nn.Module):
     def __init__(self, alpha=1, gamma=2, reduction='mean'):
-        """
-        Multi-label Focal Loss for multi-hot encoded targets.
-
-        Args:
-            alpha (float or list): Weighting factor for classes. Can be a scalar or a list/array of weights for each class.
-            gamma (float): Focusing parameter to adjust the weight given to hard examples.
-            reduction (str): Specifies the reduction to apply to the output ('none', 'mean', 'sum').
-        """
         super(MultiLabelFocalLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
 
     def forward(self, inputs, targets):
-        """
-        Args:
-            inputs: Logits (unnormalized scores) of shape (batch_size, num_classes).
-            targets: Multi-hot encoded labels of shape (batch_size, num_classes).
-        Returns:
-            Loss value (scalar or tensor depending on the reduction method).
-        """
         # Apply sigmoid to get probabilities for multi-label classification
         probs = torch.sigmoid(inputs)
         
@@ -177,30 +129,10 @@ class MultiLabelFocalLoss(torch.nn.Module):
 
 class AggrementLoss(torch.nn.Module):
 
-    """
-    Agreement Loss between binary and multiclass CAMs.
-    This loss encourages consistency between a binary class activation map (CAM)
-    and the most activated class in a multiclass CAM tensor.
-    """
-
     def __init__(self):
         super(AggrementLoss, self).__init__()
 
     def forward(self, binary_cam, class_cams):
-
-        """
-        Forward pass for computing agreement loss.
-
-        Args:
-            binary_cam (Tensor): Binary CAM tensor of shape [B, 1, H, W].
-            class_cams (Tensor): Multiclass CAM tensor of shape [B, num_classes, H, W],
-                                 where C is the number of classes.
-
-        Returns:
-            torch.Tensor: Scalar loss representing binary cross-entropy
-                          between the binary CAM and the max-activated
-                          class CAM at each pixel.
-        """
         
         # --- Detach binary CAM to prevent gradient flow ---
         binary_cam = binary_cam.detach()
@@ -215,36 +147,13 @@ class AggrementLoss(torch.nn.Module):
 
 class SimMinLoss(torch.nn.Module):
 
-    """
-    Minimizes cosine similarity between foreground and background embeddings of a class or foreground embeddings of two different classes.
-    Used to push within class or between class representations apart in a multi-class setting.
-    Sim-minimization term in Class-Specific Separation Loss or Inter-Class Separability Loss.
-    """
-
     def __init__(self, metric='cos', reduction='mean',intra=True):
-
-        """
-        Args:
-            metric (str): Similarity metric to use ('cos' only supported).
-            reduction (str): 'mean' or 'sum' for aggregating loss.
-            intra (bool): Whether to use intra-class (foreground vs background) or inter-class (foreground vs foreground) similarity.
-        """
-
         super(SimMinLoss, self).__init__()
         self.metric = metric
         self.reduction = reduction
         self.intra=intra
         
     def forward(self, embedded_fg, embedded_bg):
-
-        """
-        Args:
-            embedded_fg (Tensor): Foreground embeddings [N, num_classes, feature_dim].
-            embedded_bg (Tensor): Background embeddings [N, num_classes, feature_dim].
-
-        Returns:
-            torch.Tensor: Similarity minimization loss.
-        """
 
         if self.metric == 'cos':
             sim = cos_simi(embedded_fg, embedded_bg, self.intra)
@@ -262,20 +171,7 @@ class SimMinLoss(torch.nn.Module):
 
 class SimMaxLoss_intraclass(torch.nn.Module):
 
-    """
-    Maximizes cosine similarity between foregroud-foreground or background-background embeddings of a class
-    Used to pull same-class features closer.
-    Sim-maximization term in Class-Specific Separation Loss.
-    """
-
     def __init__(self, metric='cos', alpha=0.25, reduction='mean'):
-
-        """
-        Args:
-            metric (str): Similarity metric to use ('cos' only supported).
-            alpha (float): Rank-based weighting factor.
-            reduction (str): 'mean' or 'sum' for aggregating loss.
-        """
 
         super(SimMaxLoss_intraclass, self).__init__()
         self.metric = metric
@@ -283,15 +179,6 @@ class SimMaxLoss_intraclass(torch.nn.Module):
         self.reduction = reduction
 
     def forward(self, embedded_bg):
-        
-        """
-        Args:
-            embedded_bg (Tensor): Foreground or Background embeddings [N, num_classes, feature_dim].
-
-        Returns:
-            torch.Tensor: Similarity maximization loss.
-        """
-
         if self.metric == 'cos':
             sim = cos_simi(embedded_bg, embedded_bg)
             loss = -torch.log(sim)
@@ -314,19 +201,6 @@ class SimMaxLoss_intraclass(torch.nn.Module):
             return torch.sum(loss)
 
 def cos_simi(embedded_fg, embedded_bg, intra=True):
-
-    """
-    Computes cosine similarities between two sets of embeddings.
-
-    Args:
-        embedded_fg (Tensor): Foreground embeddings [N, num_classes, feature_dim].
-        embedded_bg (Tensor): Background embeddings [N, num_classes, feature_dim].
-        intra (bool): Whether to use intra-class (foreground vs background) or inter-class (foreground vs foreground) similarity.
-
-    Returns:
-        Tensor: Cosine similarity values.
-    """
-
     embedded_fg = F.normalize(embedded_fg, dim=2)
     embedded_bg = F.normalize(embedded_bg, dim=2)
     
@@ -342,8 +216,3 @@ def cos_simi(embedded_fg, embedded_bg, intra=True):
         sim = torch.stack(sim, dim=1)
 
     return torch.clamp(sim, min=0.0005, max=0.9995)
-
-
-
-
-

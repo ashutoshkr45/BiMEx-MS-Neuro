@@ -8,7 +8,6 @@ from models import Res18
 from loss import *
 from utils import plot_loss
 
-
 class CLNet(object):
     def __init__(self, args, train_loader, val_loader):
         self.epochs = args.epochs

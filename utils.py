@@ -31,4 +31,3 @@ def plot_loss(train_losses, val_losses, val_interval, save_path):
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
-

@@ -262,9 +262,3 @@ class AggNet(object):
             clloss_epoch[k] /= total_num
 
         return total_loss / total_num, clloss_epoch
-
-
-    
-
-    
-    

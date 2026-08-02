@@ -213,6 +213,3 @@ class Res_Scoring(nn.Module):
             self.load_state_dict(new_state_dict, strict=False)
         else:
             print("Encoder from scratch")
-
-
-
